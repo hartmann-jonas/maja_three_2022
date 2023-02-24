@@ -20,6 +20,9 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@picocss/pico": "^1.5.6"
+		"@picocss/pico": "^1.5.6",
+		"@prisma/client": "^4.10.1",
+		"colorts": "^0.1.63",
+		"prisma": "^4.10.1"
 	}
 }

@@ -7,6 +7,6 @@ import { SQLiteHiscores } from "./sqlite_hiscores";
 
 export const implementations: Record<string, Hiscores> = {
   //mongodb: new MongoDBHiscores(),
-  //sqlite: new SQLiteHiscores(),
+  sqlite: new SQLiteHiscores(),
   inmemory: new InMemoryHiscores(),
 };

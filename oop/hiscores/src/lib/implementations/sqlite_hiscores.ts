@@ -154,6 +154,33 @@ export class SQLiteHiscores implements Hiscores {
   ): Promise<SubmitScoreResponse> {
 
     console.log(("SubmitScoreRequest").magenta);
+
+    // function to return the new index of submitted / updated score
+    async function getUpdatedIndex(leaderboardId:string, userId:string):Promise<number> {
+      const leaderboard = await prisma.leaderboard.findUnique({
+        where: {
+          leaderboardId: leaderboardId
+        },
+        include: {
+          scores: {
+            orderBy: {
+              value: 'desc'
+            }
+          }
+        }
+      });
+      let i = -1
+      if (leaderboard) {
+        leaderboard.scores.forEach((score, index) => {
+          if (score.userId === userId) {
+            i = index
+          } 
+        })
+      } 
+      return i
+    }
+
+    // default response
     let response: SubmitScoreResponse = {
       success: false,
       rank: new DefaultRank(
@@ -162,7 +189,7 @@ export class SQLiteHiscores implements Hiscores {
         new JumpScore(0, new Date(), new JumpPlayer("", 0))
       ),
     };
-
+    // get the right leaderboard with the scores sorted
     const leaderboard = await prisma.leaderboard.findUnique({
       where: {
         leaderboardId: request.leaderboard_id
@@ -175,8 +202,11 @@ export class SQLiteHiscores implements Hiscores {
         },
       }
     })
+    // if that leaderboard exists
     if (leaderboard) {
+      // if multiple scores will be saved
       if (leaderboard.saveMultiple) {
+        // create new score
         await prisma.scores.create({
           data: {
             leaderboard: {
@@ -189,28 +219,11 @@ export class SQLiteHiscores implements Hiscores {
             date: request.score.date,
           },
         })
-        // get updated leaderboard
-        const indexLeaderboard = await prisma.leaderboard.findFirst({
-          where: {
-            leaderboardId: request.leaderboard_id
-          },
-          include: {scores: {orderBy: {value: 'desc'}}
-          }
-        })
-        // get index of submitted score
-        let resIndex = 0
-        const scores = indexLeaderboard?.scores
-        scores?.forEach((score, index) => {
-          if (score.userId === request.score.player.id) {
-            resIndex = index
-            console.log(index)
-          }
-        })
         console.log(("User " + request.score.player.id + " has created a new score in leaderboard " + leaderboard.leaderboardId).green.bold)
         // true response
         response.success = true
         response.rank = {
-          index: resIndex,
+          index: await getUpdatedIndex(request.leaderboard_id, request.score.player.id),
           leaderboard_id: request.leaderboard_id,
           score: new JumpScore(request.score.value, request.score.date, request.score.player)
         };
@@ -224,8 +237,10 @@ export class SQLiteHiscores implements Hiscores {
         if (userScore) {
           console.log(("Score for " + request.score.player.id + " in leaderboard " + leaderboard.leaderboardId +" found").blue)
           if (userScore.value < request.score.value) {
-            console.log(("User " + request.score.player.id + " has updated his score in leaderboard " + leaderboard.leaderboardId).green.bold)
-            prisma.scores.update({
+            console.log(("User " + request.score.player.id + " has updated his score in leaderboard " + leaderboard.leaderboardId).green.bold);
+            console.log(userScore.value)
+            console.log(request.score.value)
+            await prisma.scores.update({
               where: {
                 id: userScore.id
               },
@@ -234,27 +249,9 @@ export class SQLiteHiscores implements Hiscores {
                 date: request.score.date,
               }
             })
-            // get updated leaderboard
-            const indexLeaderboard = await prisma.leaderboard.findFirst({
-              where: {
-                leaderboardId: request.leaderboard_id
-              },
-              include: {scores: {orderBy: {value: 'desc'}}
-              }
-            })
-            // get index of submitted score
-            let resIndex = 0
-            const scores = indexLeaderboard?.scores
-            scores?.forEach((score, index) => {
-              if (score.userId === request.score.player.id) {
-                resIndex = index
-                console.log(index)
-              }
-            })
-            // true response
             response.success = true
             response.rank = {
-              index: resIndex,
+              index: await getUpdatedIndex(request.leaderboard_id, request.score.player.id),
               leaderboard_id: request.leaderboard_id,
               score: new JumpScore(request.score.value, request.score.date, request.score.player)
             };
@@ -263,7 +260,7 @@ export class SQLiteHiscores implements Hiscores {
             response = {
               success: false,
               rank: new DefaultRank(
-                0,
+                -1,
                 leaderboard.leaderboardId,
                 new JumpScore(request.score.value, request.score.date, request.score.player)
               ),
@@ -284,30 +281,13 @@ export class SQLiteHiscores implements Hiscores {
             }
           })
           console.log(("User " + request.score.player.id + " has created a new score in leaderboard " + leaderboard.leaderboardId).green.bold)
-          // get updated leaderboard
-          const indexLeaderboard = await prisma.leaderboard.findFirst({
-            where: {
-              leaderboardId: request.leaderboard_id
-            },
-            include: {scores: {orderBy: {value: 'desc'}}
-            }
-          })
-          // get index of submitted score
-          let resIndex = 0
-          const scores = indexLeaderboard?.scores
-            scores?.forEach((score, index) => {
-              if (score.userId === request.score.player.id) {
-                resIndex = index
-                console.log(index)
-              }
-            })
-            // true response
-            response.success = true
-            response.rank = {
-              index: resIndex,
-              leaderboard_id: request.leaderboard_id,
-              score: new JumpScore(request.score.value, request.score.date, request.score.player)
-            };
+          // true response
+          response.success = true
+          response.rank = {
+            index: await getUpdatedIndex(request.leaderboard_id, request.score.player.id),
+            leaderboard_id: request.leaderboard_id,
+            score: new JumpScore(request.score.value, request.score.date, request.score.player)
+          };
         }
 
       }

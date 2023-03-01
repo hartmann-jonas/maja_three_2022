@@ -33,10 +33,6 @@ export class InMemoryHiscores implements Hiscores {
     request: GetLeaderboardsRequest
   ): Promise<GetLeaderboardsResponse> {
 
-    // NO NEED TO TOUCH THIS. IMPLEMENTATION FINISHED
-    // THE RESPONSE SHOULD RETURN THE IDS FOR ALL LEADERBOARDS
-    // GETTING THE KEYS FOR THE MAP GETS THE IDS FOR THE LEADERBOARDS  
-      
     const response: GetLeaderboardsResponse = {
       success: true,
       leaderboards: [...leaderboards.keys()],
@@ -49,11 +45,13 @@ export class InMemoryHiscores implements Hiscores {
   ): Promise<CreateLeaderboardResponse> {
 
     console.log(("CreateLeaderboardRequest").magenta);
-    let createSuccess = false
+    
+    const response: CreateLeaderboardResponse = {
+      success: false,
+    };
 
     if(leaderboards.has(request.leaderboard_id)){
       console.log(("Leaderboard already exists").red)
-      createSuccess = false
     } {
       leaderboards.set(request.leaderboard_id, {
         id: request.leaderboard_id,
@@ -61,12 +59,9 @@ export class InMemoryHiscores implements Hiscores {
         save: request.save_multiple_scores_per_player
       })
       console.log(("Created leaderboard " + request.leaderboard_id).green.bold)
-      createSuccess = true
+      response.success = true
     }
 
-    const response: CreateLeaderboardResponse = {
-      success: createSuccess,
-    };
     return response;
   }
   async delete_leaderboard(
@@ -74,19 +69,17 @@ export class InMemoryHiscores implements Hiscores {
   ): Promise<DeleteLeaderboardResponse> {
 
     console.log(("DeleteLeaderboardRequest").magenta);
-    let deleteSuccess = false
+
+    const response: DeleteLeaderboardResponse = {
+      success: false,
+    };
 
     if(leaderboards.has(request.leaderboard_id)){
       leaderboards.delete(request.leaderboard_id)
       console.log(("Leaderboard " + request.leaderboard_id + " deleted").red)
-      deleteSuccess = true
-    } else {
-      deleteSuccess = false
+      response.success = true
     }
 
-    const response: DeleteLeaderboardResponse = {
-      success: deleteSuccess,
-    };
     return response;
   }
   async get_scores_from_leaderboard(
@@ -94,40 +87,44 @@ export class InMemoryHiscores implements Hiscores {
   ): Promise<GetScoresResponse> {
 
     console.log(("GetScoresRequest").magenta);
-    let getSuccess;
-    let scores: Score[];
 
+    let scores: Score[];
+    const response: GetScoresResponse = {
+      success: false,
+      scores: [],
+    };
 
     if(leaderboards.has(request.leaderboard_id)){
       const userLeaderboard = leaderboards.get(request.leaderboard_id)!
       let userScores = [...userLeaderboard.scores]
       if(userScores) {
         scores = userScores.splice(request.start_index, request.end_index)
-        getSuccess = true
-        console.log(("Recieved Leaderboards").green.bold)
+        response.success = true
+        response.scores = scores
+        console.log(("Recieved Leaderboards with scores").green.bold)
       } else {
-        getSuccess = false
         console.log(("Recieveing Leaderboards failed").red)
       }
     } else {
-      getSuccess = false
       console.log(("Recieveing Leaderboards failed").red)
     }
 
-
-
-    const response: GetScoresResponse = {
-      success: getSuccess,
-      scores: scores!,
-    };
 
     return response;
   }
   async submit_score_to_leaderboard(
     request: SubmitScoreRequest
   ): Promise<SubmitScoreResponse> {
-    let submitSuccess = false
     console.log(("SubmitScoreRequest").magenta);
+
+    const response: SubmitScoreResponse = {
+      success: false,
+      rank: new DefaultRank(
+        0,
+        request.leaderboard_id,
+        new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
+      ),
+    };
 
     if(leaderboards.has(request.leaderboard_id)){
       const userLeaderboard = leaderboards.get(request.leaderboard_id)!
@@ -143,12 +140,23 @@ export class InMemoryHiscores implements Hiscores {
         userLeaderboard.scores.push(request.score)
         console.log(("User " + request.score.player.id + " has created a new score in leaderboard " + userLeaderboard.id).green.bold)
         sortScores()
-        submitSuccess = true
+        // find new index
+        let resIndex = 0
+        userLeaderboard.scores.forEach((score, index) => {
+          if (score.player.id === request.score.player.id) {
+            resIndex = index
+          }
+        })
+        response.success = true
+        response.rank = {
+          index: resIndex,
+          leaderboard_id: request.leaderboard_id,
+          score: new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
+        }
       } else {
         let create = true
-        let index = 0
         // get all scores from leaderboard that is not save multiple
-        userLeaderboard.scores.forEach(score => {
+        userLeaderboard.scores.forEach((score, index) => {
           // search if user has a score in the leaderboard
           if (score.player.id === request.score.player.id) {
             create = false
@@ -159,13 +167,23 @@ export class InMemoryHiscores implements Hiscores {
               // replace score
               userLeaderboard.scores.splice(index, 1, request.score)
               sortScores()
-              submitSuccess = true;
+              // find new index
+              let resIndex = 0
+              userLeaderboard.scores.forEach((score, index) => {
+                if (score.player.id === request.score.player.id) {
+                  resIndex = index
+                }
+              })
+              response.success = true
+              response.rank = {
+                index: resIndex,
+                leaderboard_id: request.leaderboard_id,
+                score: new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
+              }
             } else {
               console.log(("Submitted score for " + request.score.value + " is lower than " + score.value).red)
-              submitSuccess = false;
             }
           }
-          index++;
         });
         // if user has no score in leaderboard - add the submitted score
         if (create) {
@@ -173,29 +191,27 @@ export class InMemoryHiscores implements Hiscores {
           console.log(("User " + request.score.player.id + " has created a new score in leaderboard " + userLeaderboard.id).green.bold)
           userLeaderboard.scores.push(request.score)
           sortScores()
-          submitSuccess = true;
+          // find new index
+          let resIndex = 0
+          userLeaderboard.scores.forEach((score, index) => {
+            if (score.player.id === request.score.player.id) {
+              resIndex = index
+            }
+          })
+          console.log(request.score)
+          response.success = true
+          response.rank = {index: resIndex, leaderboard_id: request.leaderboard_id, score: new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
+          }
         }
       }
     }
 
-    const response: SubmitScoreResponse = {
-      success: submitSuccess,
-      rank: new DefaultRank(
-        0,
-        request.leaderboard_id,
-        new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 9001))
-      ),
-    };
     return response;
   }
   async get_all_ranks_for_player(
     request: GetRanksForPlayerRequest
   ): Promise<GetRanksForPlayerResponse> {
     console.log(("GetRanksForPlayerRequest").magenta);
-
-    let scoreId
-    let scoreVal
-    let scoreInd
 
     const response: GetRanksForPlayerResponse = {
       success: false,
@@ -206,17 +222,12 @@ export class InMemoryHiscores implements Hiscores {
       leaderboard.scores.forEach((score,index) => {
         if (score.player.id === request.player_id) {
           console.log(("Score for user " + request.player_id + " in leaderboard " + leaderboard.id + " found").green)
-          scoreId = leaderboard.id
-          scoreVal = score
-          scoreInd = index
           response.success = true
           response.ranks.push({
             index: index,
             leaderboard_id: leaderboard.id,
             score: score
           })
-        } else {
-          console.log(("No rank for player in the leaderboards").red)
         }
       })
     });

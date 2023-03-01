@@ -11,16 +11,17 @@ datasource db {
 }
 
 model Leaderboard {
-  id             Int           @id @unique @default(autoincrement())
-  leaderboardId  String        @unique
-  scores         Scores[]
-  saveMultiple   Boolean
+  id            Int      @id @unique @default(autoincrement())
+  leaderboardId String   @unique
+  scores        Scores[]
+  saveMultiple  Boolean
 }
 
 model Scores {
-  id            Int           @id @unique @default(autoincrement())
-  leaderboardId Leaderboard[]
-  userId        String
+  id            Int          @id @unique @default(autoincrement())
   value         Int
   date          DateTime
+  userId        String       
+  leaderboard   Leaderboard @relation(fields: [leaderboardId], references: [leaderboardId], onDelete: Cascade)
+  leaderboardId String
 }

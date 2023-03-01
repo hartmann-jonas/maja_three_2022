@@ -16,7 +16,6 @@ import type {
   GetRanksForPlayerResponse,
 } from "$lib/do_not_modify/requests";
 import { JumpScore } from "$lib/do_not_modify/score";
-import { xlink_attr } from "svelte/internal";
 
 import 'colorts/lib/string';
 
@@ -29,14 +28,18 @@ export class SQLiteHiscores implements Hiscores {
   async get_leaderboards(
     request: GetLeaderboardsRequest
   ): Promise<GetLeaderboardsResponse> {
-    // TODO: implement logic
 
     console.log(("GetLeaderboardsResponse").magenta);
-    //console.log(request);
 
+    const leaderboards = await prisma.leaderboard.findMany({
+      select: {
+        leaderboardId: true
+      }
+    })
+    console.log(leaderboards)
     const response: GetLeaderboardsResponse = {
       success: true,
-      leaderboards: [], // get all entries from Leaderboards prisma table
+      leaderboards: leaderboards.map((e) => e.leaderboardId),
     };
 
 
@@ -45,11 +48,12 @@ export class SQLiteHiscores implements Hiscores {
   async create_leaderboard(
     request: CreateLeaderboardRequest
   ): Promise<CreateLeaderboardResponse> {
-    request.leaderboard_id
-    request.save_multiple_scores_per_player
 
     console.log(("CreateLeaderboardRequest").magenta);
-    let createSuccess = false
+
+    const response: CreateLeaderboardResponse = {
+      success: false,
+    };
     //  prisma find or create
     let leaderboard = await prisma.leaderboard.upsert({
       where: {
@@ -61,15 +65,11 @@ export class SQLiteHiscores implements Hiscores {
         saveMultiple:  request.save_multiple_scores_per_player
       }
     })
-    console.log("LEADERBOARD")
     // if found or created leaderboard has same id
     if ((leaderboard).leaderboardId === request.leaderboard_id) {
-      createSuccess = true
+      console.log(("Created leaderboard " + request.leaderboard_id).green.bold)
+      response.success = true
     }
-
-    const response: CreateLeaderboardResponse = {
-      success: createSuccess,
-    };
 
     return response;
   }
@@ -77,140 +77,292 @@ export class SQLiteHiscores implements Hiscores {
     request: DeleteLeaderboardRequest
   ): Promise<DeleteLeaderboardResponse> {
 
-    console.log("DeleteLeaderboardRequest");
-    let deleteSuccess = false
+    console.log(("DeleteLeaderboardRequest").magenta);
+
+    const response: DeleteLeaderboardResponse = {
+      success: false,
+    };
 
     const leaderboard = await prisma.leaderboard.delete({
       where: {
         leaderboardId: request.leaderboard_id
-      }
+      },
     })
-
-    if (await leaderboard) {
-      deleteSuccess = true
+    if (leaderboard) {
+      console.log(("Leaderboard " + request.leaderboard_id + " deleted").red)
+      response.success = true
     }
 
-    const response: DeleteLeaderboardResponse = {
-      success: deleteSuccess,
-    };
     return response;
   }
   async get_scores_from_leaderboard(
     request: GetScoresRequest
   ): Promise<GetScoresResponse> {
 
-    console.log("GetScoresRequest");
-    let scores = new Array
+    console.log(("GetScoresRequest").magenta);
 
-    function sortScores(x) {
-      x.sort((a, b)=> a.value - b.value);
-      x.reverse()
-      return x;
-    }
-
-    // get all scores from requested leaderboard
-    // push all the scores in new array
-    // sort array from hightest score to lowest
-    const scoreRes = await prisma.scores.findMany({
-      where: {
-        // why cant i find all the scores related to one leaderboard
-        leaderboardId: request.leaderboard_id
-      }
-    })
-
-    if (scoreRes) {
-      scoreRes.forEach(score => {
-        scores.push(score)
-      })
-      sortScores(scores)
-      const response: GetScoresResponse = {
-        success: true,
-        scores: scores,
-      }
-    } else {
-      // false response here
-    }
     const response: GetScoresResponse = {
       success: false,
       scores: [],
-    };
-    // change way to handle response
-    return response;
+    }
+    // get requested leaderboard
+    const leaderboard = await prisma.leaderboard.findUniqueOrThrow({
+      where: {
+        leaderboardId: request.leaderboard_id
+      },
+      // include the related scores and sort them
+      include: {
+        scores: {
+          orderBy: {
+            value: 'desc',
+          },
+          // select the value and the userId, they will be included in the score
+          select: {
+            value: true,
+            date: true,
+            userId: true,
+          },
+        },
+      },
+    });
+    // if the leaderboard exists and has scores
+    if (leaderboard && leaderboard.scores.length > 0) {
+      console.log(("Recieved Leaderboards with scores").green.bold)
+      const scores = leaderboard.scores
+      let responseScores = new Array
+      // recreate the score and player class
+      scores.forEach(score => {
+        responseScores.push({
+          value: score.value,
+          date: score.date,
+          player: {
+            id: score.userId,
+            power_level: 42,
+          },
+        })
+      })
+      
+      response.success = true
+      response.scores = responseScores
+    } else {
+      console.log(("Recieveing Leaderboards failed").red)
+    }
+    return response
   }
   async submit_score_to_leaderboard(
     request: SubmitScoreRequest
   ): Promise<SubmitScoreResponse> {
 
-    console.log("SubmitScoreRequest");
+    console.log(("SubmitScoreRequest").magenta);
+    let response: SubmitScoreResponse = {
+      success: false,
+      rank: new DefaultRank(
+        0,
+        "",
+        new JumpScore(0, new Date(), new JumpPlayer("", 0))
+      ),
+    };
 
     const leaderboard = await prisma.leaderboard.findUnique({
       where: {
         leaderboardId: request.leaderboard_id
+      },
+      include: {
+        scores: {
+          orderBy: {
+            value: 'desc'
+          }
+        },
       }
     })
     if (leaderboard) {
       if (leaderboard.saveMultiple) {
         await prisma.scores.create({
           data: {
-            leaderboardId: {
+            leaderboard: {
               connect: {
-                leaderboardId: request.leaderboard_id
-              }
+                  leaderboardId: request.leaderboard_id,
+                }
             },
             userId: request.score.player.id,
             value: request.score.value,
             date: request.score.date,
+          },
+        })
+        // get updated leaderboard
+        const indexLeaderboard = await prisma.leaderboard.findFirst({
+          where: {
+            leaderboardId: request.leaderboard_id
+          },
+          include: {scores: {orderBy: {value: 'desc'}}
           }
         })
+        // get index of submitted score
+        let resIndex = 0
+        const scores = indexLeaderboard?.scores
+        scores?.forEach((score, index) => {
+          if (score.userId === request.score.player.id) {
+            resIndex = index
+            console.log(index)
+          }
+        })
+        console.log(("User " + request.score.player.id + " has created a new score in leaderboard " + leaderboard.leaderboardId).green.bold)
+        // true response
+        response.success = true
+        response.rank = {
+          index: resIndex,
+          leaderboard_id: request.leaderboard_id,
+          score: new JumpScore(request.score.value, request.score.date, request.score.player)
+        };
       } else {
-        await prisma.scores.upsert({
+        const userScore = await prisma.scores.findFirst({
           where: {
-              // why doesnt that work?
-              // BIG FLAW, IF USER HAS MULTIPLE SCORES IN DIFFERENT
-              // LEADERBOARDS IT WOULD FIND ALL RECORDS AND UPDATE THEM
-              // SOLUTION:  ?
-              userId: request.score.player.id
-          },
-          update: {
-            // function in here?
-          },
-          create: {
-            leaderboardId: {
-              connect: {
-                leaderboardId: request.leaderboard_id,
-              }
-            },
+            leaderboardId: request.leaderboard_id,
             userId: request.score.player.id,
-            value: request.score.value,
-            date: request.score.date,
           },
         })
+        if (userScore) {
+          console.log(("Score for " + request.score.player.id + " in leaderboard " + leaderboard.leaderboardId +" found").blue)
+          if (userScore.value < request.score.value) {
+            console.log(("User " + request.score.player.id + " has updated his score in leaderboard " + leaderboard.leaderboardId).green.bold)
+            prisma.scores.update({
+              where: {
+                id: userScore.id
+              },
+              data: {
+                value: request.score.value,
+                date: request.score.date,
+              }
+            })
+            // get updated leaderboard
+            const indexLeaderboard = await prisma.leaderboard.findFirst({
+              where: {
+                leaderboardId: request.leaderboard_id
+              },
+              include: {scores: {orderBy: {value: 'desc'}}
+              }
+            })
+            // get index of submitted score
+            let resIndex = 0
+            const scores = indexLeaderboard?.scores
+            scores?.forEach((score, index) => {
+              if (score.userId === request.score.player.id) {
+                resIndex = index
+                console.log(index)
+              }
+            })
+            // true response
+            response.success = true
+            response.rank = {
+              index: resIndex,
+              leaderboard_id: request.leaderboard_id,
+              score: new JumpScore(request.score.value, request.score.date, request.score.player)
+            };
+          } else {
+            console.log(("Submitted score for " + request.score.value + " is lower than " + userScore.value).red)
+            response = {
+              success: false,
+              rank: new DefaultRank(
+                0,
+                leaderboard.leaderboardId,
+                new JumpScore(request.score.value, request.score.date, request.score.player)
+              ),
+            };
+          }
+        } else {
+          console.log(("No score for " + request.score.player.id + " in leaderboard " + leaderboard.leaderboardId +" found, creating new one").yellow)
+          await prisma.scores.create({
+            data: {
+              leaderboard: {
+                connect: {
+                    leaderboardId: request.leaderboard_id,
+                  }
+              },
+              userId: request.score.player.id,
+              value: request.score.value,
+              date: request.score.date,
+            }
+          })
+          console.log(("User " + request.score.player.id + " has created a new score in leaderboard " + leaderboard.leaderboardId).green.bold)
+          // get updated leaderboard
+          const indexLeaderboard = await prisma.leaderboard.findFirst({
+            where: {
+              leaderboardId: request.leaderboard_id
+            },
+            include: {scores: {orderBy: {value: 'desc'}}
+            }
+          })
+          // get index of submitted score
+          let resIndex = 0
+          const scores = indexLeaderboard?.scores
+            scores?.forEach((score, index) => {
+              if (score.userId === request.score.player.id) {
+                resIndex = index
+                console.log(index)
+              }
+            })
+            // true response
+            response.success = true
+            response.rank = {
+              index: resIndex,
+              leaderboard_id: request.leaderboard_id,
+              score: new JumpScore(request.score.value, request.score.date, request.score.player)
+            };
+        }
+
       }
     }
-
-    const response: SubmitScoreResponse = {
-      success: false,
-      rank: new DefaultRank(
-        0,
-        "foo",
-        new JumpScore(1337, new Date(), new JumpPlayer("bar", 9001))
-      ),
-    };
-
-    return response;
+    return response
   }
   async get_all_ranks_for_player(
     request: GetRanksForPlayerRequest
   ): Promise<GetRanksForPlayerResponse> {
-    // TODO: implement logic
 
-    console.log("GetRanksForPlayerRequest");
+    console.log(("GetRanksForPlayerRequest").magenta);
 
-    const leaderboards = await prisma.leaderboard.findMany()
     const response: GetRanksForPlayerResponse = {
       success: false,
       ranks: [],
     };
+
+    const leaderboards = await prisma.leaderboard.findMany({
+      // include the related scores and sort them
+      include: {
+        scores: {
+          orderBy: {
+            value: 'desc',
+          },
+          // select the value and the userId, they will be included in the score
+          select: {
+            id: true,
+            value: true,
+            date: true,
+            userId: true,
+          },
+        },
+      },
+    });
+
+    leaderboards.forEach(leaderboard => {
+      leaderboard.scores.forEach((score, index) => {
+        if (score.userId == request.player_id) {
+          console.log(("Score for user " + request.player_id + " in leaderboard " + leaderboard.id + " found").green)
+          response.success = true
+          response.ranks.push({
+            index: index,
+            leaderboard_id: leaderboard.leaderboardId,
+            score: {
+              value: score.value,
+              date: score.date,
+              player: {
+                id: score.userId
+              },
+            },
+          })
+
+        }
+      });
+    });
 
     return response;
   }

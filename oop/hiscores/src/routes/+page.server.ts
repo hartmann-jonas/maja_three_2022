@@ -19,6 +19,8 @@ import { JumpScore } from "$lib/do_not_modify/score";
 import { implementations } from "$lib/implementations";
 import { fail } from "@sveltejs/kit";
 
+import 'colorts/lib/string';
+
 async function create_leaderboard(
   host: string,
   implementation: string,
@@ -47,7 +49,7 @@ async function create_leaderboard(
       let response: CreateLeaderboardResponse = data;
 
       var jsonPretty = JSON.stringify(response, null, 2);
-      console.log(jsonPretty);
+      //console.log(jsonPretty);
       return jsonPretty;
     })
     .catch((error) => {
@@ -86,7 +88,7 @@ async function delete_leaderboard(
       let response: DeleteLeaderboardResponse = data;
 
       var jsonPretty = JSON.stringify(response, null, 2);
-      console.log(jsonPretty);
+      //console.log(jsonPretty);
       return jsonPretty;
     })
     .catch((error) => {
@@ -118,7 +120,7 @@ async function get_leaderboards(host: string, implementation: string) {
       let response: GetLeaderboardsResponse = data;
 
       var jsonPretty = JSON.stringify(response, null, 2);
-      console.log(jsonPretty);
+      //console.log(jsonPretty);
       return jsonPretty;
     })
     .catch((error) => {
@@ -157,7 +159,7 @@ async function submit_score_to_leaderboard(
       let response: SubmitScoreResponse = data;
 
       var jsonPretty = JSON.stringify(response, null, 2);
-      console.log(jsonPretty);
+      //console.log(jsonPretty);
       return jsonPretty;
     })
     .catch((error) => {
@@ -196,7 +198,7 @@ async function get_scores_from_leaderboard(
       let response: GetScoresResponse = data;
 
       var jsonPretty = JSON.stringify(response, null, 2);
-      console.log(jsonPretty);
+      //console.log(jsonPretty);
       return jsonPretty;
     })
     .catch((error) => {
@@ -231,7 +233,7 @@ async function get_ranks_for_player(
       let response: GetRanksForPlayerResponse = data;
 
       var jsonPretty = JSON.stringify(response, null, 2);
-      console.log(jsonPretty);
+      //console.log(jsonPretty);
       return jsonPretty;
     })
     .catch((error) => {
@@ -259,6 +261,7 @@ export const actions: Actions = {
     const results: Record<string, string[]> = {};
 
     for (let implementation in implementations) {
+      console.log((implementation).capitalize.black.bgYellow.bold)
       let testresults = [
         await create_leaderboard(host, implementation, "willi", false),
         await create_leaderboard(host, implementation, "dompi", true),
@@ -285,6 +288,20 @@ export const actions: Actions = {
           "willi",
           "miltonid",
           25
+        ),
+        await submit_score_to_leaderboard(
+          host,
+          implementation,
+          "willi",
+          "miltonid",
+          10
+        ),
+        await submit_score_to_leaderboard(
+          host,
+          implementation,
+          "willi",
+          "miltonid",
+          30
         ),
 
         await submit_score_to_leaderboard(
@@ -327,6 +344,7 @@ export const actions: Actions = {
         await get_scores_from_leaderboard(host, implementation, "dompi"),
 
         await get_ranks_for_player(host, implementation, "willid"),
+        await get_ranks_for_player(host, implementation, "linusid"),
         await delete_leaderboard(host, implementation, "willi"),
         await delete_leaderboard(host, implementation, "dompi"),
       ];

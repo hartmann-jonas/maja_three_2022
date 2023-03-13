@@ -36,7 +36,6 @@ export class SQLiteHiscores implements Hiscores {
         leaderboardId: true
       }
     })
-    console.log(leaderboards)
     const response: GetLeaderboardsResponse = {
       success: true,
       leaderboards: leaderboards.map((e) => e.leaderboardId),
@@ -137,7 +136,7 @@ export class SQLiteHiscores implements Hiscores {
           date: score.date,
           player: {
             id: score.userId,
-            power_level: 42,
+            power_level: 9000,
           },
         })
       })
@@ -238,8 +237,6 @@ export class SQLiteHiscores implements Hiscores {
           console.log(("Score for " + request.score.player.id + " in leaderboard " + leaderboard.leaderboardId +" found").blue)
           if (userScore.value < request.score.value) {
             console.log(("User " + request.score.player.id + " has updated his score in leaderboard " + leaderboard.leaderboardId).green.bold);
-            console.log(userScore.value)
-            console.log(request.score.value)
             await prisma.scores.update({
               where: {
                 id: userScore.id

@@ -287,13 +287,6 @@ export const actions: Actions = {
           implementation,
           "willi",
           "miltonid",
-          25
-        ),
-        await submit_score_to_leaderboard(
-          host,
-          implementation,
-          "willi",
-          "miltonid",
           10
         ),
         await submit_score_to_leaderboard(
@@ -301,7 +294,14 @@ export const actions: Actions = {
           implementation,
           "willi",
           "miltonid",
-          30
+          16
+        ),
+        await submit_score_to_leaderboard(
+          host,
+          implementation,
+          "willi",
+          "miltonid",
+          8
         ),
 
         await submit_score_to_leaderboard(
@@ -339,6 +339,7 @@ export const actions: Actions = {
           "willid",
           8
         ),
+
 
         await get_scores_from_leaderboard(host, implementation, "willi"),
         await get_scores_from_leaderboard(host, implementation, "dompi"),

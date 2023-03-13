@@ -36,36 +36,44 @@
       </button>
     </form>
   </div>
-  {#if form?.sqlite}
-    <hr />
-    <h1>SQLITE RESULTS</h1>
-    <hr />
-    <ol>
-      {#each form.sqlite as result}
+  <div class="horizontal">
+    {#if form?.sqlite}
+    <div>
+      <hr />
+      <h1>SQLITE RESULTS</h1>
+      <hr />
+      <ol>
+        {#each form.sqlite as result}
         <li>{result}</li>
-      {/each}
-    </ol>
-  {/if}
-  {#if form?.mongodb}
-    <hr />
-    <h1>MONGODB RESULTS</h1>
-    <hr />
-    <ol>
-      {#each form.mongodb as result}
+        {/each}
+      </ol>
+    </div>
+    {/if}
+    {#if form?.mongodb}
+    <div>
+      <hr />
+      <h1>MONGODB RESULTS</h1>
+      <hr />
+      <ol>
+        {#each form.mongodb as result}
         <li>{result}</li>
-      {/each}
-    </ol>
-  {/if}
-  {#if form?.inmemory}
-    <hr />
-    <h1>INMEMORY RESULTS</h1>
-    <hr />
-    <ol>
-      {#each form.inmemory as result}
+        {/each}
+      </ol>
+    </div>
+    {/if}
+    {#if form?.inmemory}
+    <div>
+      <hr />
+      <h1>INMEMORY RESULTS</h1>
+      <hr />
+      <ol>
+        {#each form.inmemory as result}
         <li>{result}</li>
-      {/each}
-    </ol>
-  {/if}
+        {/each}
+      </ol>
+      </div>
+    {/if}
+  </div>
 </main>
 
 <style>

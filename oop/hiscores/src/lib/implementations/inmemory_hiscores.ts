@@ -122,8 +122,8 @@ export class InMemoryHiscores implements Hiscores {
       rank: new DefaultRank(
         0,
         request.leaderboard_id,
-        new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
-      ),
+        new JumpScore(request.score.value, request.score.date, request.score.player)
+        ),
     };
 
     if(leaderboards.has(request.leaderboard_id)){
@@ -151,7 +151,7 @@ export class InMemoryHiscores implements Hiscores {
         response.rank = {
           index: resIndex,
           leaderboard_id: request.leaderboard_id,
-          score: new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
+          score: new JumpScore(request.score.value, request.score.date, request.score.player)
         }
       } else {
         let create = true
@@ -178,7 +178,7 @@ export class InMemoryHiscores implements Hiscores {
               response.rank = {
                 index: resIndex,
                 leaderboard_id: request.leaderboard_id,
-                score: new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
+                score: new JumpScore(request.score.value, request.score.date, request.score.player)
               }
             } else {
               console.log(("Submitted score for " + request.score.value + " is lower than " + score.value).red)
@@ -198,9 +198,11 @@ export class InMemoryHiscores implements Hiscores {
               resIndex = index
             }
           })
-          console.log(request.score)
           response.success = true
-          response.rank = {index: resIndex, leaderboard_id: request.leaderboard_id, score: new JumpScore(request.score.value, request.score.date, new JumpPlayer(request.score.player.id, 42))
+          response.rank = {
+            index: resIndex,
+            leaderboard_id: request.leaderboard_id,
+            score: new JumpScore(request.score.value, request.score.date, request.score.player)
           }
         }
       }

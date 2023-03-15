@@ -1,1 +1,2 @@
-2276
+10:01:56 It took 3ms to sort the Array
+10:02:19 It took 10ms to sort the Array
